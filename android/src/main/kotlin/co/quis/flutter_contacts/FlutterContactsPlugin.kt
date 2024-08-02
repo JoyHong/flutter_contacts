@@ -2,6 +2,7 @@ package co.quis.flutter_contacts
 
 import android.Manifest
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
@@ -24,6 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class FlutterContactsPlugin : FlutterPlugin, MethodCallHandler, EventChannel.StreamHandler, ActivityAware, ActivityResultListener, RequestPermissionsResultListener {
     companion object {
@@ -280,34 +282,58 @@ class FlutterContactsPlugin : FlutterPlugin, MethodCallHandler, EventChannel.Str
             // Opens external contact app to view existing contact.
             "openExternalView" ->
                 coroutineScope.launch(Dispatchers.IO) {
-                    val args = call.arguments as List<Any>
-                    val id = args[0] as String
-                    FlutterContacts.openExternalViewOrEdit(activity, context, id, false)
-                    viewResult = result
+                    try {
+                        val args = call.arguments as List<Any>
+                        val id = args[0] as String
+                        FlutterContacts.openExternalViewOrEdit(activity, context, id, false)
+                        viewResult = result
+                    } catch (anfe: ActivityNotFoundException) {
+                        withContext(Dispatchers.Main) {
+                            result.error("openExternalView fail $anfe", null, null)
+                        }
+                    }
                 }
             // Opens external contact app to edit existing contact.
             "openExternalEdit" ->
                 coroutineScope.launch(Dispatchers.IO) {
-                    val args = call.arguments as List<Any>
-                    val id = args[0] as String
-                    FlutterContacts.openExternalViewOrEdit(activity, context, id, true)
-                    editResult = result
+                    try {
+                        val args = call.arguments as List<Any>
+                        val id = args[0] as String
+                        FlutterContacts.openExternalViewOrEdit(activity, context, id, true)
+                        editResult = result
+                    } catch (anfe: ActivityNotFoundException) {
+                        withContext(Dispatchers.Main) {
+                            result.error("openExternalEdit fail $anfe", null, null)
+                        }
+                    }
                 }
             // Opens external contact app to pick an existing contact.
             "openExternalPick" ->
                 coroutineScope.launch(Dispatchers.IO) {
-                    FlutterContacts.openExternalPickOrInsert(activity, context, false)
-                    pickResult = result
+                    try {
+                        FlutterContacts.openExternalPickOrInsert(activity, context, false)
+                        pickResult = result
+                    } catch (anfe: ActivityNotFoundException) {
+                        withContext(Dispatchers.Main) {
+                            result.error("openExternalPick fail $anfe", null, null)
+                        }
+                    }
                 }
             // Opens external contact app to insert a new contact.
             "openExternalInsert" ->
                 coroutineScope.launch(Dispatchers.IO) {
-                    var args = call.arguments as List<Any>
-                    val contact = args.getOrNull(0)?.let { it as? Map<String, Any?> } ?: run {
-                        null
+                    try {
+                        var args = call.arguments as List<Any>
+                        val contact = args.getOrNull(0)?.let { it as? Map<String, Any?> } ?: run {
+                            null
+                        }
+                        FlutterContacts.openExternalPickOrInsert(activity, context, true, contact)
+                        insertResult = result
+                    } catch (anfe: ActivityNotFoundException) {
+                        withContext(Dispatchers.Main) {
+                            result.error("openExternalInsert fail $anfe", null, null)
+                        }
                     }
-                    FlutterContacts.openExternalPickOrInsert(activity, context, true, contact)
-                    insertResult = result
                 }
             else -> result.notImplemented()
         }
